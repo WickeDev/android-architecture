@@ -11,6 +11,8 @@
 - 다시말해 기존의 상태로 인해서 현재의 요청이 실패하지 않음
 - 그러므로 매 요청마다 클라이언트가 상태를 전송해야함
 
+* 그러면 로그인과 같이 상태가 필요한 인증은 HTTP에서 어떻게 구현하지?
+
 * HTTP 프로토콜에서 상태를 구현하는 방법
 
 - cookie : 일반적인 웹 사이트에서 로그인과 같은 상태를 기록하는데 사용
@@ -21,10 +23,100 @@
 
 * 그래서 사용하기로 한 JWT
 
-* 안드로이드 중간자 설계
+* JWT는 이렇게 생김
+
+.image jwt.PNG
+
+* JWT (JSON Web Token)
+
+- 로그인 시 JWT Token을 발급하여 인증 및 MAC을 식별
+- JWT는 Base64 Encoding 하여 . 으로 구분하여 3부분으로 구분한 문자열
+- HEADER : ALGORITHM & TOKEN TYPE
+- PAYLOAD(Claims) : DATA
+- SIGNATURE : SIGNATURE
+
+* JWT HEADER
+
+- ALGORITHM & TOKEN TYPE
+
+eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9
+
+    {
+        "alg": "RS512",
+        "typ": "JWT"
+    }
+
+* JWT PAYLOAD(Claims)
+
+- DATA
+
+eyJleHAiOjE0NzU0NzAwMTksImlhdCI6MTQ3NTIxMDgxOSwibWFjIj
+oiRkZGRkZGRkY5QjlDNzYzMUZGRkZGRkZGQzMzRTY4M0UiLCJzdWIi
+OiJmOTBkNzE3YS1mM2NhLTRhNDAtOWZlYS02MWM4MzExZmRlYjUifQ
+
+
+    {
+        "exp": 1475470019,
+        "iat": 1475210819,
+        "mac": "FFFFFFFF9B9C7631FFFFFFFFC33E683E",
+        "sub": "f90d717a-f3ca-4a40-9fea-61c8311fdeb5"
+    }
+
+- exp : 만료 시간
+- iat : 발급 시간
+- sub : 서명이 랜덤하게 바뀌도록 랜덤하게 생성된 UUID
+- mac : 안드로이드의 MAC
+
+* SIGNATURE
+
+- SIGNATURE
+- HEADER + PAYLOAD를 RS512 알고리즘으로 서명
+
+EDh2UNrmrhTzgfENFatK1y74J-EDhvt_Kj1t09rTwfvnLPwmnYgsWb
+iMpVDl8V5o3l7yKaAid_hBEaF3T8Zt0MzTJq-pqiUzI0T0gyUoXYBx
+RoRB_L-1FWSiYtOUxeryREnZ_GYIHlmDmD1mPl3jyONMhbQ0YOYJxv
+37L74s3MmeJSnzO6wVjo6omViuy7ckoCrVHjnpIbgH5U30O1YCghrP
+y8DagPMptKuW_IZ1gP7pAdpo0QFy0pZhtCX8YnAX3o65uNTYN0rtqa
+VayLlxD8moqLHET0miid1zqNTWsTj7hto1lFgmtUpMRoNxSZKEz8QQ
+-umc4zcz4EEGQpjInQ
+
+※ JWT는 Base64 Encoding 된 문자열로써 암호화된 문자열이 아님!
+그러므로 SIGNATURE를 통해 인증의 역할만 할 뿐 내용은 누구나 볼 수 있음
+
+* 안드로이드 중간자를 설계해보자
 
 - 안드로이드 - 중간자 간에 통신은 HTTP/REST
 - 중간자 - AM 서버 간에 통신은 tcp
+
+.image ambus-proxy-resize.png
+
+* ...잠깐 REST? 란 무엇인가?
+
+* REST (Representational State Transfer) API
+
+- HTTP URL와 Method를 사용하여 자기 서술적인 API를 지칭
+- 응답은 주로 json 혹은 xml을 사용
+
+- POST : Create
+- GET : Read
+- PUT : Update
+- DELETE : Delete
+
+* 다음 REST API가 의미하는 바는?
+
+- POST http://ambus.com/user/ - Form Data (email:ambus@ambus.com, pass:ambuspass, name:ambus)
+- GET http://ambus.com/user/?email=ambus@ambus.com
+- PUT http://ambus.com/user/ - Form Data (email:ambus@ambus.com, pass:ambuspass, name:rest)
+- DELETE http://ambus.com/user/ - Form Data (email:ambus@ambus.com, pass:ambuspass)
+
+* 왜 REST 방식을 택했나?
+
+- 문서화 도구, 라이브러리들은 REST 사상에 따라 사용하기 쉽게 만들어져 있음
+- 만약 요청을 JSON으로 보내고 싶다면 도구 및 라이브러리의 수정이 불가피
+- 직접 요청 해보기
+.link http://intra.novonetworks.com:5252/apidoc/ apidoc
+
+* 다시 중간자 구현 내용으로 돌아가서
 
 * 등장인물
 
@@ -36,8 +128,230 @@
 
 * 안드로이드 중간자 설계
 
-1. 안드로이드는 매 요청마다 MAC을 같이 전송함
-1. 안드로이드에서 요청이 들어오면 (항상 MAC을 전송)
-2. 중간자는 클라이언트 메니저에게 해당 MAC을 가진 클라이언트
+1. 안드로이드는 매 요청마다 어떤 방식으로든 MAC을 같이 전송함
+2. 로그인시에는 필드에, 일반적인 요청시에는 HTTP Header에 JWT token에 담아서
+3. 요청이 들어오면 클라이언트 메니저에게 해당 MAC을 가진 클라이언트달라고 요청
+4. 클라이언트가 있으면 바로 AM Server에 요청
+5. 아니라면 새로 가짜 클라이언트 객체를 생성하여 요청
 
+* 안드로이드 중간자 설계
 
+- 가짜 클라이언트가 가지고 있는 값들
+
+    {
+        "mac": "FFFFFFFF9B9C7631FFFFFFFFC33E683E",
+        "ver": "1",
+        "swVersion": "1.0.12",
+        "osVersion": "23",
+        "seq": 4,
+        "ended": false,
+        "id": 2,
+        "authToken": "7BC841B7F914ACC9D809AE597C70607D96DCAA2AFF29C0EB75395CAFC7FFAB8B"
+    }
+
+- 가짜 클라이언트는 연결 후 24시간 동안 연결을 붙잡음
+- 요청이 들어오면 타이머 다시 갱신
+- 위 값들을 저장하고 있다가 언제든 유효한 요청이 들어오면 처리할 수 있도록 구현
+
+* 로그인
+
+- POST http://intra.novonetworks.com:5252/auth/token/
+
+From Data
+
+- email, pass, pushId, mac, swVer, osVer
+- mac, swVer, osVer는 가짜 클라이언트 생성과 id 를 요청하는데 사용
+- email, pass, pushId는 로그인에 사용
+
+Response
+
+    {
+        "rslt": "OK",
+        "userid": 2,
+        "authtok": "5039E941255A90263DDBCAC5FB31C74624A8E63EDDE474D6AFF7685A7432CD68",
+        "name": "orange",
+        "phone": "0100000000",
+        "remain": 0,
+        "nok_count": 0,
+        "bearerToken": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0NzU0NzU0NDAsImlhdCI6MTQ3NTIxNjI0MCwibWFjIjoiRkZGRkZGRkY5QjlDNzYzMUZGRkZGRkZGQzMzRTY4M0UiLCJzdWIiOiJhNDgyZjBjMy1mNWY1LTRmOTMtYTY0OC04OWVjMzUyMjRjNWIifQ.Sa6s9jRz7fIH-C3MxrqqCo8MpJ7j7kzJcYsAAPYg0iT9avF-4NMpci6wf64P3CiV1Te8bcNnqk1h62GUWdxxmtEW1Kyb8Z8s-RVi80Y7wyTpZFsR0SZun_f98XOQNDyrNcWrMLX708zzFKoyqkOMlZOQqYB9qTB4kJ05RYfuBbDCMMe_jY6TJPwm6_GoYiSyM18jIJd6DtTNgjzaoa4JD2S-Tw_Q-G22__aGWoi6upqrzGAPbxKKl6p8cFDp7wGzLtG20rnhvAYiY1oDvvkNVSzTuDJZSbLkgxY2N9OFH9jnaP66bvQufqbx69lRSoVAOHdOF7_5Mejf-iZTi__scg"
+    }
+
+* 박스 리스트
+
+- POSt http://intra.novonetworks.com:5252/boxes/
+
+Header
+- Authorization : 로그인 때 받은 bearerToken 토큰
+
+응답
+
+    {
+        "rslt": "OK",
+        "boxes": []
+    }
+
+* 안드로이드는?
+
+* 안드로이드는?
+
+- Retrofit 라이브러리 사용
+- Github star 15,901개의 가장 인기있고 안정적인 라이브러리
+
+.image jake.jpg
+
+- Android의 락스타 Jake Wharton (ButterKnife, Retrofit, RxJava 커미터)
+
+* Retrofit을 사용해 봅시다.
+
+Gson과 Lombok을 사용해 응답에 대한 class type을 정의합니다. 
+
+    @Data
+    public class SignInResponse {
+        @SerializedName("rslt") String result;
+        @SerializedName("userid") int userId;
+        @SerializedName("authtok") String authToken;
+        @SerializedName("name") String userName;
+        @SerializedName("phone") String phone;
+        @SerializedName("remain") int remain;
+        @SerializedName("nok_count") int notOkCount;
+        @SerializedName("has_box") int hasBox;
+        @SerializedName("bearerToken") String bearerToken;
+    }
+
+* Retrofit을 사용해 봅시다.
+
+- 엔드 포인트에 대한 인터페이스를 정의
+
+    public interface AuthService {
+
+        @FormUrlEncoded
+        @POST("/auth/token/")
+        Observable<SignInResponse> createToken(
+                @Field("email") String email,
+                @Field("pass") String password,
+                @Field("pushId") String pushId,
+                @Field("mac") String mac,
+                @Field("swVer") String swVer,
+                @Field("osVer") String osVer
+        );
+
+        ...
+    }
+
+    
+
+    
+* Retrofit을 사용해 봅시다.
+
+    AuthService authService = serviceBuilder.basicService(AuthService.class);
+
+    /**
+     * 수동 로그인 시도
+     * @param email 로그인 할 이메일
+     * @param pass  로그인 할 패스워드
+     */
+    @Override
+    public void attemptLogin(String email, String pass) {
+        Observable<SignInResponse> responseObservable = authService.createToken(email, pass,
+                gcmToken.get(), AndroidID.GetDevicesUUID(context), BuildConfig.VERSION_NAME,
+                String.valueOf(Build.VERSION.SDK_INT))
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+
+        responseObservable.subscribe(signInResponse -> {
+            Log.i(TAG, signInResponse.toString());
+            // TODO login complete action
+        }, throwable -> {
+            Log.e(TAG, throwable.getLocalizedMessage());
+            // TODO login failed action
+        });
+    }
+
+* Retrofit을 사용해 봅시다.
+
+Response
+
+    {
+        "rslt": "OK",
+        "userid": 2,
+        "authtok": "5039E941255A90263DDBCAC5FB31C74624A8E63EDDE474D6AFF7685A7432CD68",
+        "name": "orange",
+        "phone": "0100000000",
+        "remain": 0,
+        "nok_count": 0,
+        "bearerToken": "eyJhbGciOiJSUzUxMiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE0NzU0NzU0NDAsImlhdCI6MTQ3NTIxNjI0MCwibWFjIjoiRkZGRkZGRkY5QjlDNzYzMUZGRkZGRkZGQzMzRTY4M0UiLCJzdWIiOiJhNDgyZjBjMy1mNWY1LTRmOTMtYTY0OC04OWVjMzUyMjRjNWIifQ.Sa6s9jRz7fIH-C3MxrqqCo8MpJ7j7kzJcYsAAPYg0iT9avF-4NMpci6wf64P3CiV1Te8bcNnqk1h62GUWdxxmtEW1Kyb8Z8s-RVi80Y7wyTpZFsR0SZun_f98XOQNDyrNcWrMLX708zzFKoyqkOMlZOQqYB9qTB4kJ05RYfuBbDCMMe_jY6TJPwm6_GoYiSyM18jIJd6DtTNgjzaoa4JD2S-Tw_Q-G22__aGWoi6upqrzGAPbxKKl6p8cFDp7wGzLtG20rnhvAYiY1oDvvkNVSzTuDJZSbLkgxY2N9OFH9jnaP66bvQufqbx69lRSoVAOHdOF7_5Mejf-iZTi__scg"
+    }
+
+- 실제 응답은 signInResponse 형태로 파싱되어 오브젝트화 됩니다.
+
+즉 수작업으로 파싱하여 오브젝트화 할 필요가 없습니다.
+
+    signInResponse.getUserName();
+
+와 같이 바로 쓰시면 됩니다.
+
+* 그럼 인증은 어떻게?
+
+* 그럼 인증은 어떻게?
+
+- serviceBuilder.basicService 내부에서 알아서 처리합니다.
+
+    AuthService authService = serviceBuilder.basicService(AuthService.class);
+
+- ServiceBuilder 내부
+
+    public class ServiceBuilder {
+        ...
+        private Request.Builder requestBuild(Request request, String auth) {
+            return request.newBuilder()
+                    .header("Accept", "application/json")
+                    .header("Authorization", "Bearer " + auth)
+                    .method(request.method(), request.body());
+        }
+    }
+
+- 중간에 요청을 가로채 Header에 token을 자동으로 세팅
+
+* 인증된 토큰을 가지고서 박스 리스트에 요청해 봅시다.
+
+- 응답에 대해 Lombok과 Gson으로 class를 정의하고
+
+    @Data
+    @EqualsAndHashCode(callSuper = true)
+    public class BoxListResponse extends Response {
+        @SerializedName("boxes") List<Box> boxes;
+    }
+
+- 엔드 포인트에 대한 요청을 정의한 뒤
+
+    public interface BoxService {
+        @GET("/boxes/")
+        Observable<BoxListResponse> boxList();
+    }
+
+- 서비스를 생성하고
+
+    BoxService boxService = serviceBuilder.basicService(BoxService.class);
+
+* 인증된 토큰을 가지고서 박스 리스트에 요청해 봅시다.
+
+    Observable<BoxListResponse> boxListResponseObservable = boxService.boxList()
+                    .subscribeOn(Schedulers.io())
+                    .observeOn(AndroidSchedulers.mainThread());
+
+    boxListResponseObservable.subscribe(
+                        boxListResponse -> Log.i(TAG, boxListResponse.toString()),
+                        throwable -> Log.e(TAG, throwable.getLocalizedMessage()),
+                        () -> Log.i(TAG, "onComplete")
+                    );
+
+Response 
+
+    {
+        "rslt": "OK",
+        "boxes": []
+    }
+    
+* 질문 있으신가요?
+
+.image qna.jpg
