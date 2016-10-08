@@ -1,0 +1,236 @@
+React로 채팅을 만들면서 배운점
+그리고 어떻게 개선할 것인가?
+9 Oct 2016
+
+* 지금까지의 이야기
+
+* 언제?, 어디서?, 무엇을?
+
+언제?
+
+- 스터디 하면서 한달간 병행으로 진행
+
+어디서?
+
+- 회사에서
+
+무엇을?
+
+- 영어 채팅 프로그램
+
+* 어떻게?
+
+아래와 같은 기술을 사용해서
+
+- react 
+- redux
+- redux-thunk
+- electron
+- firebase
+- sass
+
+* 왜?
+
+- 이왕 스터디 중인거 써보고 싶어서!
+- 회사에 웹을 제대로 할 수 있는 사람이 없다...
+
+* 개발을 시작할 당시의 내 실력
+
+- 일년간 겉핥기로 배운 웹
+- ASP.NET C# + jqeury
+- 디자인은 포기
+
+* 시행착오 (배울게 많아도 너무 많다!)
+ 
+- react만 가지고 제대로 할 수 있는게 없음
+- es6 문법 및 기능도 배워야하고
+- 라우팅을 하기위해 react-router도 배우고
+- 전역 상태를 관리하기 위해 redux를 배우고
+- redux의 비동기 처리를 위해 redux-thunk도 배우고
+- redux와 react를 연결하기 위해 react-redux도 배우고
+- redux를 제대로 다루기 위해 함수형이 뭔지도 배우고
+- 만족할 만한 개발환경을 세팅하기 위해 webpack도 배우고
+- 테스트까지 배울 시간이 부족
+
+* 시행착오
+
+.image wtf.jpg
+
+- 게다가 온갖 힙스터 react boilerplate들이 난무하던 춘추전국시대
+
+* 시행착오 (백엔드)
+
+- Golang + RethinkDB로 작성할 계획
+- ...이었지만, 시간이 촉박한 관계로 firebase로 급선회 
+- 덕분에 시간 단축
+
+* 시행착오 (불판)
+
+- 하지만 firebase는...
+- Relation 을 지원하지 않음
+- Array 를 지원하지 않음
+
+* 시행착오 (불판의 스키마)
+
+    {
+        "users": {
+            "{user-name}": {                
+                "email": {String},
+                "profile": "{String}", // url
+                "friends": {
+                    "{user-key}": true,
+                    "{user-key}": true,
+                    "{user-key}": true,
+                    ...
+                },
+                "rooms": {
+                    "{room-key}": {String}, // String은 채팅방 이름
+                    "{room-key}": {String},
+                    ...
+                }
+            }
+            ...
+        }
+    }
+
+* 시행착오 (불판의 스키마)
+
+    "rooms": {
+        "{room-key}": {
+            "lastMsg": {
+                "msg": "{String}"
+            },
+            "messages": {
+                "{message-key}": {
+                    "msg": {String}, // 메세지
+                    "read": { // 읽은 유저들
+                        "{user-key}": true,
+                        ... 
+                    },
+                    "timestamp": "{Unix time}", // 말한 시각
+                    "user": "{user-key}" // 발언한 유저
+                },
+                "{message-key}": {
+                    ...
+                },
+                ...
+            }                
+        }
+        ...
+    }
+
+* 시행착오 (가장 큰 판단미스)
+
+- firebase 의 구조를 그대로 redux 에 가져옴
+- Array 대신 Object로 iterate 함
+- 변수 네이밍 및 가독성 하락
+
+* 시행착오 (아쉽지만 어쩔수 없는)
+
+- firebase는 relation을 지원하지 않음
+- 그러므로 수동으로 관계를 매핑해줘야함
+- 아직 mongoose와 같은 odm 라이브러리가 없음
+- 실시간성을 제대로 사용하기 위해서 on 메서드를 활용
+- on 메서드를 뷰의 라이프사이클에 맞추기가 어려움 
+
+* 시행착오 (기타 아쉬운 점)
+
+- redux 의 switch 가 맘에 들지 않음
+- actions 에서 처리하니 actions creator 가 지저분해짐
+- containers 에서 components 를 참조할 때 상대 경로의 복잡성
+- 거의 끝나갈 쯤 create-react-app 이 나옴
+- 초기엔 sass 를 쓰다가 시간이 부족해 inline style 로 때움 
+- sass 말고 기본 설정인 css (with post-css) 로 충분함
+- 점점 어플리케이션이 완성되어 갈 수록 테스트 부재에 대한 후회
+
+* 어떻게 개선할 것인가?
+
+* firebase 의 구조를 그대로 redux 에 가져옴
+
+    "friends": {
+        "orange": true,
+        "banana": true,
+        "grape": true
+    }
+
+- 위와 같은 데이터가 있으면 어레이로 변환해서 redux 에 넣을 것
+
+.link https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/keys Object.keys()
+.link https://developer.mozilla.org/ko/docs/Web/JavaScript/Reference/Global_Objects/Object/values Object.values()
+
+- firebase 배열을 위 처럼 만들면 Object.keys() 로 해결볼 수 있음
+- Object.values() 는 es7 사양
+- firebase refs.push() 메서드는 어레이처럼 값을 삽입 (key 에 고유 uid 를 생성하여)
+- push 메서드를 쓰고 싶다면 Object.values() 폴리필을 사용 
+.link https://github.com/WickeDev/chat-schema
+* redux에 대한 아쉬움
+
+- redux의 switch가 맘에 들지 않음
+▶ redux-actions 를 사용하자
+.link https://github.com/WickeDev/redux-actions-practice
+
+- firebase 질의를 actions에서 처리하니 actions creator가 지저분해짐
+▶ service 레이어를 만들어서 firebase 관련 질의를 모아보자
+
+* containers 에서 components 를 참조할 때 상대 경로의 복잡성
+
+- webpack 에 modulesDirectories 라는 옵션이 있음
+
+    modulesDirectories: ["web_modules", "node_modules", "src"]
+
+- webstorm에서 src 경로를 mark as resource root 로 지정
+
+    import {incrementBegin, incrementEnd, decrementBegin, decrementEnd} from 'actions'
+
+- 위처럼 어디에서든지 src 아래 있는 디렉토리를 절대 경로로 찾아갈 수 있음
+- 테스트 관련해서는 좀더 조사가 필요
+
+* create-react-app
+
+- react boilerplate 의 끝판왕
+- 처음 시작하기 쉽고
+- 최소한 필요한건 다 있지만
+- npm run eject 로 복잡한 커스텀까지 OK
+- 테스트도 기본으로 들어가 있음
+
+* 테스트 부재에 대한 아쉬움
+
+- create-react-app 에 기본 번들로  jest 들어가 있음
+
+    import {incrementEnd, decrementEnd} from '../index'
+
+    describe('action counter', () => {
+        it('should to equal increase 42 action', () => {
+            expect(incrementEnd(42)).toEqual({
+            type: 'INCREMENT_END',
+            payload: 42
+            });
+        });
+
+        it('should to equal increase -10 action', () => {
+            expect(decrementEnd(-10)).toEqual({
+            type: 'DECREMENT_END',
+            payload: -10
+            });
+        })
+    });
+
+* 스타일에 대한 아쉬움
+
+- css-loader, style-loader, postcss-loader 면 충분 
+- 위 웹팩 로더들이 자동으로 네임스페이스를 격리해주니 굳이 SASS까지?
+.link https://github.com/css-modules/webpack-demo
+- 당분간은 위 조합에 만족할 듯 하지만 react-css-modules 도 살펴보는 중
+.link https://github.com/gajus/react-css-modules
+
+* 그 외
+
+.link https://facebook.github.io/immutable-js/ immutable.js
+- redux 의 reducer 에서 쉽게 불변 객체를 만드는데 도움 
+.link https://github.com/paularmstrong/normalizr normalizr
+- 서버에서 응답은 정규화된 데이터가 대부분
+- 하지만 firebase는 정규화된 응답이 아니니 쓰지는 않을 듯 
+
+* 질문 있으신가요?
+
+.image qna.jpg
