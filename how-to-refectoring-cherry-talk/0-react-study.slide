@@ -124,6 +124,7 @@ React로 채팅을 만들면서 배운점
 - firebase 의 구조를 그대로 redux 에 가져옴
 - Array 대신 Object로 iterate 함
 - 변수 네이밍 및 가독성 하락
+.link https://github.com/WickeDev/chat-schema
 
 * 시행착오 (아쉽지만 어쩔수 없는)
 
