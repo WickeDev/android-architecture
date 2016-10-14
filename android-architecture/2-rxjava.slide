@@ -1,10 +1,10 @@
-RxJava (Reactive Extension Java)
+RxJava (Reactive Extension Java) without Operator
 13 Oct 2016
 
 * ReactiveX (Rx)란?
 
 - Rx = Observables + LINQ(Operator) + Schedulers
-- Observables: 상태의 변화가 있을 때마다 통지받도록 하는 디자인 패턴
+- Observables: 상태의 변화가 있을 때 통지받도록 하는 디자인 패턴
 - LINQ(Operator): MS에서 개발한 함수형 질의 인터페이스
 - Schedulers: 선언만으로 어떤 컨텍스트에서 실행할지 결정(ex. thread, io 등등)
 
@@ -28,7 +28,7 @@ RxJava (Reactive Extension Java)
 
 * 모든 데이터와 이벤트는 스트림이다
 
-- 강의흐름: Observables
+- 강의 흐름: Observables
 - 댐이나 바위: Operator (LINQ) or Schedulers
 
 * 단점은?
