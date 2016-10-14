@@ -8,7 +8,7 @@ RxJava (Reactive Extension Java) without Operator
 - LINQ(Operator): MS에서 개발한 함수형 질의 인터페이스
 - Schedulers: 선언만으로 어떤 컨텍스트에서 실행할지 결정(ex. thread, io 등등)
 
-* 왜 쓰나?
+* 도대체 왜 쓰나?
 
 - 안드로이드에서 비동기 처리의 난해함
 - Thread, AsyncTask 는 What 과 How 가 같히 얽혀 있음
