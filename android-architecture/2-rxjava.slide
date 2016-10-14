@@ -121,11 +121,10 @@ Observable 계약
 
 * Subscriber
 
-    // 옵저버블 로부터 데이터를 구독
+    // 옵저버블로 부터 데이터를 구독
     observable.subscribeOn(Schedulers.io())
             .observeOn(Schedulers.newThread())
-            .subscribe(
-                    integer -> {
+            .subscribe(integer -> {
                         long threadId = Thread.currentThread().getId();
                         System.out.println("subscribe threadId: " + threadId + " / integer: " + integer);
                     },
