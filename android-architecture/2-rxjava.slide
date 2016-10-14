@@ -1,0 +1,284 @@
+RxJava (Reactive Extension Java)
+13 Oct 2016
+
+* ReactiveX (Rx)란?
+
+- Rx = Observables + LINQ(Operator) + Schedulers
+- Observables: 상태의 변화가 있을 때마다 통지받도록 하는 디자인 패턴
+- LINQ(Operator): MS에서 개발한 함수형 질의 인터페이스
+- Schedulers: 선언만으로 어떤 컨텍스트에서 실행할지 결정(ex. thread, io 등등)
+
+* 왜 쓰나?
+
+- 안드로이드에서 비동기 처리의 난해함
+- Thread, AsyncTask 는 What 과 How 가 같히 얽혀 있음
+- Rx로 사고하면 비동기와 동기를 작성하는 방법이 같아짐
+
+* 그럼 어떻게 RxJava 는 이 문제를 해결했는가?
+
+- What을 정의하고 (Observables)
+- How는 구독 받는 시점에 선언 (Schedulers)
+- 모든 이벤트를 물흐름(스트림)으로 보고 LINQ(함수형 인터페이스)로 질의하겠다.
+- 마치 데이터베이스에 쿼리문 날리듯이
+- "Your Mouse is a Database" - Erik Meijer
+
+* 모든 데이터와 이벤트는 스트림이다
+
+.image stream.gif
+
+* 모든 데이터와 이벤트는 스트림이다
+
+- 강의흐름: Observables
+- 댐이나 바위: Operator (LINQ) or Schedulers
+
+* 단점은?
+
+1. 러닝커브
+2. 러닝커브
+3. 러닝커브
+
+* 러닝커브는 어디서 오는가?
+
+- Operator (LINQ)
+- 오퍼레이터는 함수형의 개념을 적극적으로 사용하고 있음
+- “새로운 기술을 받아들이는 것은 차라리 쉽지만 새로운 방식으로 생각하는 것은 오히려 받아들이기 어려울 수 있습니다.” - Bret Victor
+
+* 지금까지 해온 방식
+
+    ArrayList<Crow> nightsWatch = new ArrayList<>();
+    for (Person person : gameOfThronesCharacters) {
+        if (person.wearsBlack && person.isMale) {
+            nightsWatch.add(person.getCrowInsideHine());
+        }
+    }
+
+    ArrayList<Crow> nightsWatchSorted = new ArrayList<>(nightsWatch);
+
+    Collections.sort(nightsWatchSorted, new Comparator<Crow>() {
+        @Override
+        public int compare(Crow lhs, Crow rhs) {
+            return lhs.getAge().compareTo(rhs.getAge());
+        }
+    });
+
+    for (Crow crow : nightsWatchSorted) {
+        if (crow.getName().equals("Jhon Snow")) {
+            crow.knowsNothing();
+        }
+    }
+
+* Java 8 의 Stream API를 활용한 방식
+
+    Stream.of(gameOfThronesCharacters)
+        .filter(person -> person.wearsBlack && person.isMale)
+        .map(person -> person.getCrowInsideHine())
+        .distinct()
+        .sort((crow1, crow2) ->
+            crow1.getAge().equals(crow2.getAge()) ? 0
+            : crow1.getAge() > crow2.getAge() ? 1 : -1
+        )
+        .filter(crow -> crow.getName().equals("John Snow"))
+        .forEach(crow -> crow.knowsNothing());
+
+함수형은 여기서 다 다루기엔 너무 큰 주제
+
+* 하지만...
+
+- Operator를 활용하지 않아도 충분히 좋다.
+- Observables + Schedulers = ReactiveX (일단은)
+
+* 이것만 알면 OK
+
+Observable 계약
+
+- 옵저버블은 onNext, onError, onComplete 이벤트를 발행 할 수 있음
+- onNext 0번 혹은 여러번 불려질 수 있음 (끝날 때까지 계속 부를수도)
+- onComplete 혹은 onError가 불려지면 구독이 종료
+- 구독을 받는 쪽에서는 Subscriber 라는 인터페이스를 구현하여 onNext, onError, onComplete 이벤트를 수신 받을 수 있음  
+
+* Observables
+
+10 ▶ (1초 쉬었다가) ▶ 20 ▶ Complete 를 발행하는 Observable
+
+    // 옵저버블 선언 (이러이러한 일을 하겠다)
+    Observable<Integer> observable = Observable
+            .fromEmitter(integerAsyncEmitter -> {
+                long threadId = Thread.currentThread().getId();
+                System.out.println("observable threadId: " + threadId + " / next: 10");
+                integerAsyncEmitter.onNext(10);
+
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                    integerAsyncEmitter.onError(e);
+                }
+                System.out.println("observable threadId: " + threadId + " / next: 20");
+                integerAsyncEmitter.onNext(20);
+                System.out.println("observable threadId: " + threadId + " / onComplete");
+                integerAsyncEmitter.onCompleted();
+            }, AsyncEmitter.BackpressureMode.LATEST);
+
+* Subscriber
+
+    // 옵저버블 로부터 데이터를 구독
+    observable.subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.newThread())
+            .subscribe(
+                    integer -> {
+                        long threadId = Thread.currentThread().getId();
+                        System.out.println("subscribe threadId: " + threadId + " / integer: " + integer);
+                    },
+                    throwable -> System.out.println("throwable: " + throwable.getMessage()),
+                    () -> {
+                        long threadId = Thread.currentThread().getId();
+                        System.out.println("subscribe threadId: " + threadId + " / onComplete");
+                    }
+            );
+
+subscribe / integer: 10
+subscribe / integer: 20
+subscribe / onComplete
+
+* 그리고 RxJava 를 쓰는 가장 큰 이유
+
+- Schedulers: 어디에서 실행 될지 한줄로 선언 가능
+
+.link http://reactivex.io/documentation/ko/scheduler.html Schedulers
+
+- subscribeOn: 옵저버블이 어느 스레드에서 실행 될 것인가?
+- observeOn: 다음 라인부터 어디서 실행 될 것인가?
+
+* Schedulers
+
+    // 옵저버블 로부터 데이터를 구독
+    observable.subscribeOn(Schedulers.io())
+            .observeOn(Schedulers.newThread())
+            .subscribe(
+                    integer -> {
+                        long threadId = Thread.currentThread().getId();
+                        System.out.println("subscribe threadId: " + threadId + " / integer: " + integer);
+                    },
+                    throwable -> System.out.println("throwable: " + throwable.getMessage()),
+                    () -> {
+                        long threadId = Thread.currentThread().getId();
+                        System.out.println("subscribe threadId: " + threadId + " / onComplete");
+                    }
+            );
+
+observable threadId: 14 / next: 10
+subscribe threadId: 13 / integer: 10
+observable threadId: 14 / next: 20
+observable threadId: 14 / onComplete
+subscribe threadId: 13 / integer: 20
+subscribe threadId: 13 / onComplete
+
+* 실제 안드로이드에서?
+
+박스 정보를 가져오는 실제 인터페이스
+
+    final Observable<BoxGetResponse> boxGetResponse$
+            = boxService.boxGet(boxId)
+            .subscribeOn(Schedulers.io())
+            .observeOn(AndroidSchedulers.mainThread());
+
+    boxGetResponse$.subscribe(boxGetResponse -> {
+            Log.i(TAG, boxGetResponse.toString()); 
+        },
+        throwable -> {
+            throwable.getStackTrace();
+        },
+        () -> {
+            Log.i(TAG, "boxService.boxGet(boxId: " + boxId + ") onComplete");
+    });
+
+subscribeOn(Schedulers.io()) // 옵저버블의 작업은 io 스레드에서
+observeOn(AndroidSchedulers.mainThread()) // 그 이후 작업은 UI 스레드에서
+
+* 단! 주의해야 할 점
+
+- 하나의 next 만 받는 옵저버블이라면 크게 문제는 없겠지만...
+- 여러개의 next를 받을 수 있는 옵저버블들이 있음
+- ex. 푸시, 데이터 변경 감시, 키보드 입력 등등
+- 메모리릭 방지를 위해 반드시 서브스크립션을 unsubscribe 해줘야함
+
+    private Subscription subscription;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        subscription = boxListResponseObservable.subscribe();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        subscription.unsubscribe();
+    }
+
+* 하지만 서브스크립션이 많아질 경우...
+
+    private Subscription subscriptionOne;
+    private Subscription subscriptionTwo;
+    private Subscription subscriptionThree;
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        subscriptionOne = ObservableOne.subscribe();
+        subscriptionTwo = ObservableTwo.subscribe();
+        subscriptionThree = ObservableThree.subscribe();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        subscriptionOne.unsubscribe();
+        subscriptionTwo.unsubscribe();
+        subscriptionThree.unsubscribe();
+    }
+
+* 하나하나 일일히 해제하기는 귀찮음
+
+그래서 있는 CompositeSubscription
+
+    private CompositeSubscription compositeSubscription = new CompositeSubscription();
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        compositeSubscription.add(ObservableOne.subscribe());
+        compositeSubscription.add(ObservableTwo.subscribe());
+        compositeSubscription.add(ObservableThree.subscribe());
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        compositeSubscription.clear();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        compositeSubscription.unsubscribe();
+    }
+
+* 어 clear는 뭐지?
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        compositeSubscription.clear();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        compositeSubscription.unsubscribe();
+    }
+
+- unsubscribe 는 한번 만 호출할 수 있음
+- clear는 여러번 호출할 수 있음
+- 실제 내부 코드를 보면 unsubscribed = true; 여부 만 다름
+

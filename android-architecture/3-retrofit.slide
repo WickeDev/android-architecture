@@ -1,0 +1,221 @@
+Retrofit 2
+14 Oct 2016
+
+* Retrofit 이란?
+
+* Retrofit 이란
+
+* Retrofit 은 REST 사상에 따라 사용하기 쉽도록 만들어져 있음
+
+* REST (Representational State Transfer) API란?
+- HTTP URL와 Method를 사용하여 자기 서술적으로 작성된 API를 지칭
+- 응답은 주로 json 혹은 xml을 사용
+- POST : Create
+- GET : Read
+- PUT : Update
+- DELETE : Delete
+
+* 다음 REST API가 의미하는 바는?
+POST http://ambus.com/user/ - Form Data (email:ambus@ambus.com, pass:ambuspass, name:ambus)
+GET http://ambus.com/user/?email=ambus@ambus.com
+PUT http://ambus.com/user/ - Form Data (email:ambus@ambus.com, pass:ambuspass, name:rest)
+DELETE http://ambus.com/user/ - Form Data (email:ambus@ambus.com, pass:ambuspass)
+
+* 메서드와 관련된 어노테이션
+
+각각 REST methed 방식을 지정
+
+@POST
+@GET
+@PUT
+@DELETE
+
+* 실제 요청하는 값과 관련된 어노테이션
+
+@Query: 쿼리 변수 (ex. ...com/id?=he&pass?man), 주로 GET에 사용
+@Path: 경로 변수 (ex ...com/boxes/{id}/) 경로를 변수처럼 사용
+@Field (@FormUrlEncoded) Form Body 값을 실어 보냄, GET을 제외한 나머지에 사용
+
+
+* 실제 엔드포인트를 가지고 작성하기
+
+.link http://intra.novonetworks.com:5253/apidoc/
+
+- 인터페이스를 정의
+
+    public interface BoxService {
+        @GET("/boxes/")
+        Observable<BoxListResponse> boxList();
+
+        @GET("/boxes/{boxid}/")
+        Observable<BoxGetResponse> boxGet(@Path("boxid") int boxId);
+
+        @FormUrlEncoded
+        @PUT("/boxes/{boxid}/security/")
+        Observable<BoxSecuSetResponse> boxSecuritySet(
+            @Path("boxid") int boxId, @Field("enable") boolean enable);
+    }
+
+* 응답 받을 BoxGetResponse 타입을 정의
+
+    @Getter
+    public class BoxGetResponse extends Response {
+        @SerializedName("boxid") int boxId;
+        @SerializedName("name") String name;
+        @SerializedName("mac") String mac;
+        @SerializedName("mgr") Boolean isManager;
+        @SerializedName("addr") String address;
+        @SerializedName("zip") String zip;
+        @SerializedName("long") String longitude;
+        @SerializedName("lati") String latitude;
+        @SerializedName("notify") int notify;
+        @SerializedName("status") String status;
+        @SerializedName("comsince") String connectSince;
+        @SerializedName("emgid") int emergencyId;
+        @SerializedName("disabled_since") String disconnectSince;
+        @SerializedName("need_to_auth") Boolean isNeedToAuth;
+        @SerializedName("devices") List<Device> devices;
+    }
+
+* Presenter 에서 의존성 주입받기
+
+PresenterImpl 에서
+
+    private ServiceBuilder serviceBuilder;
+    private NetworkUtils networkUtils;
+
+    @Inject PresenterImpl(
+        ServiceBuilder serviceBuilder,
+        NetworkUtils networkUtils
+    ) {
+        this.serviceBuilder = serviceBuilder; 
+        this.networkUtils = networkUtils;
+    }
+
+or Activity 에서
+
+    @Inject ServiceBuilder serviceBuilder;
+    @Inject NetworkUtils networkUtils;
+
+* 실제 호출 가능한 인터페이스 만들기
+
+- BoxService는 아까 전에 만들었던 가상 인터페이스
+- 이거 그냥 부르면 죽어요.
+- 아래와 같이 ServiceBuilder 를 호출해서 실제 호출 가능한 인터페이스로 변환 
+
+    BoxService boxService = serviceBuilder.basicService(BoxService.class);
+
+* 선언 완료
+    
+    private NetworkUtils networkUtils;
+    private BoxService boxService;
+
+    @Inject PresenterImpl(
+        ServiceBuilder serviceBuilder,
+        NetworkUtils networkUtils
+    ) {
+        this.networkUtils = networkUtils;
+        this.boxService = serviceBuilder.basicService(BoxService.class);
+    }
+
+* 호출해 봅시다
+        
+        final Observable<BoxGetResponse> boxGetResponse$ = boxService.boxGet(boxId)
+                .subscribeOn(Schedulers.io())
+                .observeOn(AndroidSchedulers.mainThread());
+
+        compositeSubscription.add(boxGetResponse$
+                .subscribe(boxGetResponse -> {
+                            Log.i(TAG, "boxService.boxGet(boxId: " + boxId + ") onNext");
+                        },
+                        throwable -> {
+                            throwable.getStackTrace();
+                            Log.i(TAG, throwable.getLocalizedMessage());
+                        },
+                        () -> {
+                            Log.i(TAG, "boxService.boxGet(boxId: " + boxId + ") onComplete");
+                        })
+        );
+
+* 응답은 어떻게?
+
+정상(200): onNext 1회, onComplete 1회
+오류(4xx, 5xx): onError 1회
+
+.link https://ko.wikipedia.org/wiki/HTTP_%EC%83%81%ED%83%9C_%EC%BD%94%EB%93%9C HTTP 상태 코드
+
+- 200(성공): 서버가 요청을 제대로 처리했다는 뜻이다. 이는 주로 서버가 요청한 페이지를 제공했다는 의미로 쓰인다.
+- 400(잘못된 요청): 서버가 요청의 구문을 인식하지 못했다.
+- 401(권한 없음): 이 요청은 인증이 필요하다. 서버는 로그인이 필요한 페이지에 대해 이 요청을 제공할 수 있다.
+- 500(내부 서버 오류): 서버에 오류가 발생하여 요청을 수행할 수 없다.
+
+* 그럼 NetworkUtils는 무엇인가?
+
+- 직접 작성한 유틸리티
+
+매번 비동기 코드를 작성할 때마다 반복되는 xxxOn 코드
+
+    ObservableX
+    .subscribeOn(Schedulers.io())
+    .observeOn(AndroidSchedulers.mainThread());
+
+    ObservableY
+    .subscribeOn(Schedulers.io())
+    .observeOn(AndroidSchedulers.mainThread());
+
+    ObservableZ
+    .subscribeOn(Schedulers.io())
+    .observeOn(AndroidSchedulers.mainThread());
+
+대신 한줄로 줄여쓰자
+
+    ObservableX
+    .compose(networkUtils.async())
+
+* 보너스
+
+기본 네트워크 에러 대신 {"data":{"rslt":"LO"}} 는 어떻게 보여주지?
+- 비정상 적인 응답이 왔을 때 아래 콜백을 호출하여
+- HTTP 상태 에러를 커스텀 에러로 변환
+
+    authService.createToken(email, password, pushId, mac, swVer, osVer)
+    .compose(networkUtils.asyncErrorHandler(SignInResponse.class, signInResponse -> {
+                String result = signInResponse.getResult();
+                int notOkCount = signInResponse.getNotOkCount();
+                int remain = signInResponse.getRemain();
+                String err = result.equals("NOK") ? "존재하지 않는 이메일 계정이거나," +
+                        " 비밀번호가 틀립니다. 5회 연속으로 로그인에 실패하면 30분간 " +
+                        "로그인 시도가 불가능합니다. (틀린 횟수 : " + notOkCount + ")회"
+                        : result.equals("LO") ? "5회 연속으로 로그인에 실패하였습니다. "
+                        + remain + "분 후 다시 시도해주세요."
+                        : result.equals("IUL") ? "이메일 길이가 너무 깁니다."
+                        : result.equals("IPL") ? "비밀번호 길이가 너무 깁니다."
+                        : result;
+                return new Throwable(err);
+            }
+    ));
+
+* 복잡하니 따로 떼서
+
+응답 Body({"data":{"rslt":"LO"}}...)를 어떻게 파싱할 것인가?
+
+200(응답 성공)을 제외한 나머지 응답이 왔을 때 불려질 콜백 
+ 
+
+    public <T> Observable.Transformer<T, T> asyncErrorHandler(
+            Type typeOfT, OnErrorHandler<T> onErrorHandler
+    )
+
+    Observable<SignInResponse> responseObservable = ObservableX
+        .compose(networkUtils.asyncErrorHandler(SignInResponse.class, signInResponse -> {
+            return new Throwable("새로운 에러!");
+        });
+
+    responseObservable.subscribe(responseObservable -> {
+        Log.i(TAG, signInResponse.toString());
+    }, throwable -> {
+        view.ectErrorShow(throwable.getLocalizedMessage());
+    });
+
+Type typeOfT 메세지 바디를 어떤 형식으로 파싱할 것인가?
+OnErrorHandler<T> onErrorHandler 파싱된 응답 콜백 및 반환 값을 새로운 에러
