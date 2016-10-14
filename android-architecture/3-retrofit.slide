@@ -172,7 +172,7 @@ or Activity 에서
     ObservableX
     .compose(networkUtils.async())
 
-* 보너스
+* 에러 처리
 
 기본 네트워크 에러 대신 {"data":{"rslt":"LO"}} 는 어떻게 보여주지?
 - 비정상 적인 응답이 왔을 때 아래 콜백을 호출하여
@@ -219,3 +219,11 @@ or Activity 에서
 
 Type typeOfT 메세지 바디를 어떤 형식으로 파싱할 것인가?
 OnErrorHandler<T> onErrorHandler 파싱된 응답 콜백 및 반환 값을 새로운 에러
+
+* 보너스 (Stetho)
+
+- 안드로이드에서 디버그 모드가 활성화 된 상태에서
+
+- 크롬을 열고 chrome://inspect/#devices
+
+- Network 탭을 열면 http 응답이 오고가는 것을 볼 수 있음
