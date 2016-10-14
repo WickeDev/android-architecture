@@ -264,7 +264,7 @@ observeOn(AndroidSchedulers.mainThread()) // 그 이후 작업은 UI 스레드�
         compositeSubscription.unsubscribe();
     }
 
-* 어 clear는 뭐지?
+* 어?! clear는 뭐지?
 
     @Override
     protected void onPause() {
